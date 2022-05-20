@@ -10,7 +10,7 @@ from PIL import Image
 
 pageDir = 'pages'
 subDirs = [f for f in os.listdir(pageDir)]
-fileName = 'non_mainstream'
+fileName = 'cumulative' #cumulative, mainstream, non_mainstream
 
 pixels = {}
 avgClusteredPixels_5 = {n: 0 for n in range(0, 52)}
@@ -44,40 +44,46 @@ sorted_pixels = {key:pixels[key] for key in sorted(pixels.keys())}
 sorted_pixels_2 = dict(sorted(sorted_pixels.items(), key=lambda item: item[1], reverse=True))
 
 
-lists = sorted(sorted_pixels_2.items())[:20]
-# plt.plot(x,y)
-# plt.show()
+# plot of most common pixels
+fig = plt.figure()
+ax = fig.add_axes([0,0,1,1])
+x_axis = [str("(" + str(key[0]) + ", " + str(key[1]) + ", " + str(key[2]) + ")") for key in sorted_pixels_2][:20]
+print(x_axis)
+y_axis  = [sorted_pixels_2.get(key) for key in sorted_pixels_2][:20]
+print(y_axis)
+ax.bar(x_axis,y_axis)
+plt.show()
 
-#plot of most common pixels
-# fig = plt.figure()
-# ax = fig.add_axes([0,0,1,1])
-# x_axis = [str("(" + str(key[0]) + ", " + str(key[1]) + ", " + str(key[2]) + ")") for key in sorted_pixels_2][:20]
-# print(x_axis)
-# y_axis  = [sorted_pixels_2.get(key) for key in sorted_pixels_2][:20]
-# print(y_axis)
-# ax.bar(x_axis,y_axis)
-# plt.show()
+# find largest non gray pixel
+maxDiff = -1000
+maxDiffPixel = (-1,-1,-1)
+for p in pixels:
+    val1, val2, val3 = p[0], p[1], p[2]
+    if abs(val1 - val2) > maxDiff or abs(val2 - val3) > maxDiff or abs(val1 - val3) > maxDiff:
+        maxDiff = max(abs(val1 - val2), abs(val2 - val3), abs(val1 - val3))
+        maxDiffPixel = p
+print(maxDiff)
+print(maxDiffPixel)
 
-#find largest non gray pixel
-# maxDiff = -1000
-# maxDiffPixel = (-1,-1,-1)
-# for p in pixels:
-#     val1, val2, val3 = p[0], p[1], p[2]
-#     if abs(val1 - val2) > maxDiff or abs(val2 - val3) > maxDiff or abs(val1 - val3) > maxDiff:
-#         maxDiff = max(abs(val1 - val2), abs(val2 - val3), abs(val1 - val3))
-#         maxDiffPixel = p
-# print(maxDiff)
-# print(maxDiffPixel)
+# plot of clustered pixels
+fig = plt.figure()
+ax = fig.add_axes([0,0,1,1])
+x_axis = [key for key in avgClusteredPixels_5]
+print(x_axis)
+y_axis = [avgClusteredPixels_5.get(key) for key in avgClusteredPixels_5]
+print(y_axis)
+ax.bar(x_axis,y_axis)
+plt.show()
 
-#plot of clustered pixels
-# fig = plt.figure()
-# ax = fig.add_axes([0,0,1,1])
-# x_axis = [key for key in avgClusteredPixels_5]
-# print(x_axis)
-# y_axis = [avgClusteredPixels_5.get(key) for key in avgClusteredPixels_5]
-# print(y_axis)
-# ax.bar(x_axis,y_axis)
-# plt.show()
+# plot of clustered pixels
+fig = plt.figure()
+ax = fig.add_axes([0,0,1,1])
+x_axis = [key for key in avgClusteredPixels_10]
+print(x_axis)
+y_axis = [avgClusteredPixels_10.get(key) for key in avgClusteredPixels_10]
+print(y_axis)
+ax.bar(x_axis,y_axis)
+plt.show()
 
 f = open('stats/' + fileName + '.txt', 'w')
 for i in sorted_pixels_2:
