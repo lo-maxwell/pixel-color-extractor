@@ -1,101 +1,91 @@
 # source env/bin/activate
-#python3 extracter.py
+# python3 extractor.py pageDir fileName plotData cluster
+# python3 extractor.py pages cumulative True 5
 
 import cv2
 import time
 import os
+import sys
 import numpy as np
+import argparse
 from matplotlib import pyplot as plt
 from PIL import Image
 
-pageDir = 'pages'
-subDirs = [f for f in os.listdir(pageDir)]
-fileName = 'cumulative' #cumulative, mainstream, non_mainstream
+# data: dictionary, numElements: int
+def show_plot(data, numElements = -1):
+    fig = plt.figure()
+    ax = fig.add_axes([0,0,1,1])
+    if numElements > 0:
+        x_axis = [(str("(" + str(key[0]) + ", " + str(key[1]) + ", " + str(key[2]) + ")")) if not isinstance(key, int) else key for key in data][:numElements]
+        y_axis  = [data.get(key) for key in data][:numElements]
+    else:
+        x_axis = [(str("(" + str(key[0]) + ", " + str(key[1]) + ", " + str(key[2]) + ")")) if not isinstance(key, int) else key for key in data]
+        y_axis  = [data.get(key) for key in data]
+    ax.bar(x_axis,y_axis)
+    plt.show()
 
-pixels = {}
-avgClusteredPixels_5 = {n: 0 for n in range(0, 52)}
-avgClusteredPixels_10 = {n: 0 for n in range(0, 26)}
+# fileName: string, data: dictionary, totalPixels: int
+def write_stats_file(fileName, data, totalPixels):
+    f = open('stats/' + fileName + '.txt', 'w')
+    for i in data:
+        f.write(str(i) + " : " + str(data[i]) + " : " + str("{:.4f}".format((100.0 * data[i])/totalPixels)) + "%\n")
+    f.close()
 
-for dir in subDirs:
-    if fileName == 'mainstream' and dir != 'mainstream':
-        continue
-    if fileName == 'non_mainstream' and dir == 'mainstream':
-        continue
-    pages = [os.path.join(pageDir, os.path.join(dir,f)) for f in os.listdir(os.path.join(pageDir, dir)) if f.lower().endswith(('jpg', '.jpeg'))]
-    print(pages)
-    for p in pages:
-        image = Image.open(p, 'r')
-        pix_val = list(image.getdata())
-        #print(pix_val)
-        for pix in pix_val:
-            if isinstance(pix, int):
-                pix = (pix, pix, pix)
-            pixels.setdefault(pix, 0)
-            pixels.update({pix: pixels.get(pix) + 1})
-            avgPix = (pix[0] + pix[1] + pix[2])/3
-            avgClusteredPixels_5.update({int(avgPix//5) : avgClusteredPixels_5.get(int(avgPix//5)) + 1})
-            avgClusteredPixels_10.update({int(avgPix//10) : avgClusteredPixels_10.get(int(avgPix//10)) + 1})
+# myDict: dicitonary, key: int or tuple
+def update_dict(myDict, key):
+    myDict.setdefault(key, 0)
+    myDict.update({key: myDict.get(key) + 1})
 
-totalPixels = 0
-for key in pixels:
-    totalPixels += pixels[key]
+def main(args):
+    pageDir = args[0] if len(args) > 0 else 'pages'
+    fileName = args[1] if len(args) > 1 else 'cumulative'
+    plotData = args[2] if len(args) > 2 else True
+    cluster = int(args[3]) if len(args) > 3 else 5
 
-sorted_pixels = {key:pixels[key] for key in sorted(pixels.keys())}
-sorted_pixels_2 = dict(sorted(sorted_pixels.items(), key=lambda item: item[1], reverse=True))
+    pixels = {}
+    avgClusteredPixels = {n: 0 for n in range(0, int(255//cluster))}
+
+    subDirs = [f for f in os.listdir(pageDir)]
+    for dir in subDirs:
+        #If not in cumulative mode, only search through folder named fileName
+        if fileName != 'cumulative' and fileName != dir:
+            continue
+
+        #Get list of pages in folder
+        pages = [os.path.join(pageDir, os.path.join(dir,f)) for f in os.listdir(os.path.join(pageDir, dir)) if f.lower().endswith(('jpg', '.jpeg'))]
+        for p in pages:
+            image = Image.open(p, 'r')
+            pix_val = list(image.getdata())
+            for pix in pix_val:
+                if isinstance(pix, int):
+                    pix = (pix, pix, pix)
+                update_dict(pixels, pix)
+                avgPix = (pix[0] + pix[1] + pix[2])/3
+                update_dict(avgClusteredPixels, int(avgPix//cluster))
+
+    totalPixels = sum([pixels[key] for key in pixels])
+
+    # sorted_pixels = {key:pixels[key] for key in sorted(pixels.keys())}
+    # sorted_pixels_2 = dict(sorted(sorted_pixels.items(), key=lambda item: item[1], reverse=True))
+    sorted_pixels = dict(sorted(pixels.items(), key=lambda item: item[1], reverse=True))
+
+    if plotData:
+        show_plot(sorted_pixels, 20)
+        show_plot(avgClusteredPixels)
 
 
-# plot of most common pixels
-fig = plt.figure()
-ax = fig.add_axes([0,0,1,1])
-x_axis = [str("(" + str(key[0]) + ", " + str(key[1]) + ", " + str(key[2]) + ")") for key in sorted_pixels_2][:20]
-print(x_axis)
-y_axis  = [sorted_pixels_2.get(key) for key in sorted_pixels_2][:20]
-print(y_axis)
-ax.bar(x_axis,y_axis)
-plt.show()
+    write_stats_file(fileName, sorted_pixels, totalPixels)
+    write_stats_file(fileName + '_cluster_' + str(cluster), avgClusteredPixels, totalPixels)
 
-# find largest non gray pixel
-maxDiff = -1000
-maxDiffPixel = (-1,-1,-1)
-for p in pixels:
-    val1, val2, val3 = p[0], p[1], p[2]
-    if abs(val1 - val2) > maxDiff or abs(val2 - val3) > maxDiff or abs(val1 - val3) > maxDiff:
-        maxDiff = max(abs(val1 - val2), abs(val2 - val3), abs(val1 - val3))
-        maxDiffPixel = p
-print(maxDiff)
-print(maxDiffPixel)
 
-# plot of clustered pixels
-fig = plt.figure()
-ax = fig.add_axes([0,0,1,1])
-x_axis = [key for key in avgClusteredPixels_5]
-print(x_axis)
-y_axis = [avgClusteredPixels_5.get(key) for key in avgClusteredPixels_5]
-print(y_axis)
-ax.bar(x_axis,y_axis)
-plt.show()
 
-# plot of clustered pixels
-fig = plt.figure()
-ax = fig.add_axes([0,0,1,1])
-x_axis = [key for key in avgClusteredPixels_10]
-print(x_axis)
-y_axis = [avgClusteredPixels_10.get(key) for key in avgClusteredPixels_10]
-print(y_axis)
-ax.bar(x_axis,y_axis)
-plt.show()
+if __name__ == '__main__':
+    # parser = argparse.ArgumentParser(description='Create a pixel extractor')
+    # parser.add_argument('--folderName', metavar='path', required=True,
+    #                     help='the path to top level directory containing directories of pages')
+    # parser.add_argument('--dem', metavar='path', required=True,
+    #                     help='path to dem')
+    # args = parser.parse_args()
+    # main(workspace=args.workspace, schema=args.schema, dem=args.dem)
 
-f = open('stats/' + fileName + '.txt', 'w')
-for i in sorted_pixels_2:
-    f.write(str(i) + " : " + str(sorted_pixels_2[i]) + " : " + str("{:.2f}".format((100.0 * sorted_pixels_2[i])/totalPixels)) + "%\n")
-f.close()
-
-f = open('stats/' + fileName + '_cluster_5.txt', 'w')
-for i in avgClusteredPixels_5:
-    f.write(str(i) + " : " + str(avgClusteredPixels_5[i]) + " : " + str("{:.2f}".format((100.0 * avgClusteredPixels_5[i])/totalPixels)) + "%\n")
-f.close()
-
-f = open('stats/' + fileName + '_cluster_10.txt', 'w')
-for i in avgClusteredPixels_10:
-    f.write(str(i) + " : " + str(avgClusteredPixels_10[i]) + " : " + str("{:.2f}".format((100.0 * avgClusteredPixels_10[i])/totalPixels)) + "%\n")
-f.close()
+    main(sys.argv[1:])

@@ -2,6 +2,8 @@ Python script to determine the most commonly used pixel colors on manga pages
 
 ```
 python3 extractor.py
+
+python3 extractor.py pages cumulative True 5
 ```
 
 Run extractor.py to get the graph of most common pixels + most common clusters.
